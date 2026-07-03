@@ -1,3 +1,14 @@
+> **Moved.** This repo has been consolidated into
+> [`kotoba-lang/kami-engine`](https://github.com/kotoba-lang/kami-engine) at
+> [`kami-engine-clj/`](https://github.com/kotoba-lang/kami-engine/tree/main/kami-engine-clj).
+>
+> Rationale: this compiler contains zero Rust source, and `kami-engine`'s CI
+> enforces a repo-wide no-Rust guard, so it fits there without conflict — see
+> `kami-engine-clj/PROVENANCE.md` for details. This repo is now archived
+> (read-only) and kept only for history.
+
+---
+
 # engine-clj
 
 `kotoba.engine-clj` — a Clojure/EDN-subset → WASM-targeted-instruction-IR
