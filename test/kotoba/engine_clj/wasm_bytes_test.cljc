@@ -27,6 +27,7 @@
   (:require [kotoba.engine-clj.wasm-bytes :as wb]
             [kotoba.engine-clj.codegen :as codegen]
             [kotoba.engine-clj.ast :as ast]
+            [kotoba.engine-clj.numerics :as num]
             #?(:clj [clojure.test :refer [deftest is testing]])))
 
 #?(:clj
@@ -112,4 +113,56 @@
          (let [ir (compile-ir "(defn f [] (spawn-entity \"ghost\"))")]
            (is (seq (:blob (:literals ir))) "sanity: this source really does produce literal bytes")
            (let [bytes (wb/emit-module ir)]
-             (is (some #(= % 11) bytes) "a data-section id byte (11) must appear somewhere in the output")))))))
+             (is (some #(= % 11) bytes) "a data-section id byte (11) must appear somewhere in the output")))))
+
+     ;; -------------------------------------------------------------------
+     ;; Regression: inline f32 literals must decode back to their real value
+     ;; -------------------------------------------------------------------
+     ;;
+     ;; Found by kami-script-runtime-rs's real tick-loop verification against
+     ;; isekai-network's actual `logic.clj`, not by inspection: `:f32-const`'s
+     ;; IR payload is the raw Clojure float (codegen.cljc's `:float` node),
+     ;; not an already-converted bit pattern -- `instr->bytes` needs
+     ;; `num/f32-bits` before `f32-le-bytes`. Every prior test in this file
+     ;; either used a bit-pattern constant directly (`f32-le-bytes-known-
+     ;; patterns`) or never decoded the emitted bytes back to a float, so
+     ;; none of them could have caught this. A `def`-bound constant (like
+     ;; isekai-network's `spawn-radius`) happened to route through a
+     ;; different, already-correct path and masked the bug for positive
+     ;; named values; only an inline literal (e.g. a raw `-520.0` in a `cond`
+     ;; branch) exposed it, and only for values whose raw-float-as-bit-
+     ;; pattern reinterpretation is a NaN or denormal -- exactly what
+     ;; isekai-network's spawn-tick cond branches do for two of four cases.
+
+     (defn- decode-f32-le [bs]
+       #?(:clj (let [bb (java.nio.ByteBuffer/wrap (byte-array (map unchecked-byte bs)))]
+                 (.order bb java.nio.ByteOrder/LITTLE_ENDIAN)
+                 (.getFloat bb))))
+
+     (deftest f32-const-inline-negative-literal-round-trips
+       (testing "an inline (not def-bound) negative f32 literal decodes back to itself, not NaN"
+         (let [ir (compile-ir "(defn f [] (f32 -520.0))")
+               bytes (wb/emit-module ir)
+               ;; the f32.const immediate is the 4 bytes right after opcode
+               ;; 0x43 in the single function's code-section body -- locate
+               ;; it structurally rather than hard-coding an offset.
+               idx (loop [i 0]
+                     (cond
+                       (> i (- (count bytes) 5)) (throw (ex-info "0x43 not found" {}))
+                       (= (nth bytes i) 0x43) (inc i)
+                       :else (recur (inc i))))
+               imm (subvec (vec bytes) idx (+ idx 4))]
+           (is (= -520.0 (decode-f32-le imm))
+               (str "expected -520.0, got raw bytes " imm " decoding to " (decode-f32-le imm))))))
+
+     (deftest f32-const-inline-positive-small-literal-round-trips
+       (testing "an inline positive f32 literal also decodes back correctly (the buggy path also broke small positive values -- 520.0 raw-as-bits decoded to ~7.29e-43, not 520.0)"
+         (let [ir (compile-ir "(defn f [] (f32 520.0))")
+               bytes (wb/emit-module ir)
+               idx (loop [i 0]
+                     (cond
+                       (> i (- (count bytes) 5)) (throw (ex-info "0x43 not found" {}))
+                       (= (nth bytes i) 0x43) (inc i)
+                       :else (recur (inc i))))
+               imm (subvec (vec bytes) idx (+ idx 4))]
+           (is (= 520.0 (decode-f32-le imm))))))))
