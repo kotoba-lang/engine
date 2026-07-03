@@ -141,7 +141,20 @@
 
       (= op :i64-const) (into [0x42] (sleb128 (second instr)))
       (= op :i32-const) (into [0x41] (sleb128 (second instr)))
-      (= op :f32-const) (into [0x43] (f32-le-bytes (second instr)))
+      ;; BUGFIX (found via kami-script-runtime-rs's real tick-loop verification,
+      ;; not by inspection): `:f32-const`'s IR payload is the raw Clojure float
+      ;; literal (see codegen.cljc's `:float` node handling), NOT an already
+      ;; zero-extended-u32 bit pattern — `f32-le-bytes` needs the latter (see its
+      ;; own docstring). Passing the raw float straight through silently emitted
+      ;; garbage bytes for every literal NOT already bit-converted upstream: a
+      ;; `def`-bound constant like `spawn-radius` happened to route through a
+      ;; different, already-correct path, but any literal used inline (e.g. the
+      ;; `-520.0` in isekai-network's `spawn-tick` cond branches) decoded back to
+      ;; NaN (negative values) or a ~1e-43 denormal (small positive values) --
+      ;; `wasm-tools validate` never caught this because any 4 bytes are
+      ;; structurally valid IEEE-754, just semantically wrong. `num/f32-bits`
+      ;; is the missing conversion.
+      (= op :f32-const) (into [0x43] (f32-le-bytes (num/f32-bits (second instr))))
 
       (= op :local-get)  (into [0x20] (uleb128 (second instr)))
       (= op :local-set)  (into [0x21] (uleb128 (second instr)))
