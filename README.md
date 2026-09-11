@@ -30,9 +30,9 @@ targets the `kami:engine@1.0.0` WIT world: `spawn-entity`, `set-position!`,
 `defsystem` (tick-handler sugar), `defentity` (self-spawning constructor
 sugar), and `defatom` (a mutable i64 state cell that persists across ticks).
 All guest values are `i64`; f32 values are carried as their IEEE-754
-bit-pattern zero-extended into the i64. See `src/kotoba/engine_clj.cljc`'s
+bit-pattern zero-extended into the i64. See `src/kotoba/engine_clj.cljk`'s
 namespace docstring for the full language-subset writeup and a worked
-example, and `src/kotoba/engine_clj/ast.cljc` for the complete builtin/
+example, and `src/kotoba/engine_clj/ast.cljk` for the complete builtin/
 host-import surface.
 
 ## Namespaces
@@ -100,7 +100,7 @@ clojure -M:test      # cognitect test-runner — 39 tests / 188 assertions, 0 fa
   (`Invalid token: /f`). This affects ONLY getting the `/f` symbol in from
   source text — the `Builtin`/`ast`/`codegen`/`interp` pipeline itself
   handles `/f` (`:fdiv`) correctly once a `/f` symbol exists as data (see
-  `test/kotoba/engine_clj/exec_test.cljc`'s and `parity_test.cljc`'s
+  `test/kotoba/engine_clj/exec_test.cljk`'s and `parity_test.cljc`'s
   `f32-division-agrees-and-is-correct`-style tests, which construct the
   form programmatically — `(symbol nil "/f")` — to prove this). A real
   `kotoba-edn`-equivalent reader (or a small custom tokenizer) would close
@@ -154,7 +154,7 @@ clojure -M:test      # cognitect test-runner — 39 tests / 188 assertions, 0 fa
   compiler logic, and the target directory doesn't exist in this repo.
 - **Two-backend (wasmtime JIT vs. wasmi interpreter) execution parity** —
   see `kotoba.engine-clj.interp`'s and
-  `test/kotoba/engine_clj/parity_test.cljc`'s "Honest scope" sections. This
+  `test/kotoba/engine_clj/parity_test.cljk`'s "Honest scope" sections. This
   port has exactly one reference interpreter, so `parity_test.cljc` proves
   determinism (two independent runs of the same source agree) and
   correctness (against known-correct values), not cross-backend agreement.
