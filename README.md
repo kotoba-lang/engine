@@ -83,8 +83,8 @@ and doesn't).
 ## Building / testing
 
 ```bash
-clojure -M:lint     # clj-kondo, --fail-level error (0 errors)
-clojure -M:test      # cognitect test-runner — 39 tests / 188 assertions, 0 failures
+kbb -M:lint     # clj-kondo, --fail-level error (0 errors)
+kbb -M:test      # cognitect test-runner — 39 tests / 188 assertions, 0 failures
 ```
 
 ## Known upstream gaps (inherited or introduced by this port)
